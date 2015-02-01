@@ -13,6 +13,9 @@
  */
 #define BAUDRATE  112500
 #define SOL_LED   13
+#define __SEND_RAW__
+#undef __SEND_ANGLES__
+
 /*
  * VARIABLES
  */
@@ -36,6 +39,7 @@ complementary_filter filter;
 #endif
 
 mpu_data getMotionData();
+float last_t = 0.0;
 
 void setup()
 {
@@ -93,6 +97,7 @@ void loop()
   Serial.println("");
   #elif defined(__SEND_RAW__)
   Serial.print("DEL:");
+  float dt = t_now - last_t;
   Serial.print(dt,DEC);
   Serial.print("#ACC:");
   Serial.print(data.x_accel);
@@ -106,8 +111,9 @@ void loop()
   Serial.print(data.y_gyro);
   Serial.print(",");
   Serial.print(data.z_gyro);
-  Serial.print("");
+  Serial.println("");
   #endif
+  last_t = t_now;
   
   delay(100);
 }

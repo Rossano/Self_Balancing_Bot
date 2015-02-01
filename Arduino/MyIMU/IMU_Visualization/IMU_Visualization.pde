@@ -3,8 +3,8 @@
 import processing.serial.*;
 
 Serial myPort;
-short portIndex = 1;
-int BaudRate = 57600;
+short portIndex = 0;
+int BaudRate = 9600;
 int LF = 10;
 String inString;
 int calibString;
@@ -28,6 +28,29 @@ float last_z_gyro = 0.0;
 int base_x_gyro = 0;
 int base_y_gyro = 0;
 int base_z_gyro = 0;
+
+// x,y coordinates of circles 1, 2, 3 (pitch, roll, yaw)
+int cx[] = {150, 450, 750};
+int cy[] = {200, 200, 200};
+
+
+// Data from dmp and complementary filters
+float dmp[] = new float[3];
+float cmp[] = new float[3];
+
+// circle diameters
+int d   = 200; 
+
+/*
+ * Draws a line of length len, centered at x, y at the specified angle
+ */
+void drawLine(int x, int y, int len, float angle) {
+  pushMatrix();
+  translate(x, y);
+  rotate(angle);
+  line(-len/2, 0, len/2, 0);
+  popMatrix();
+}
 
 void draw_rect_rainbow() {
   scale(90);
@@ -111,15 +134,24 @@ void draw_rect(int r, int g, int b) {
 void setup()
 {
   // Setup the display window
-  size(1400, 800, P3D);
+  size(800, 400, P3D);
   noStroke();
   colorMode(RGB, 256);
   
+  println("Inizia list porte:");
+  
+  //myPort = new Serial(this, Serial.list()[0], 9600); 
+  println(Serial.list());
   // Setup the serial port
   String portName = Serial.list()[portIndex];
-  myPort = new Serial(this, portName, BaudRate);
+  println(portName);
+  println("Open the serial port...");
+  //myPort = new Serial(this, portName, BaudRate);
+  myPort = new Serial(this, Serial.list()[0], BaudRate);
   myPort.clear();
   myPort.bufferUntil(LF);
+  
+  println("Done. End initialization");
 }
 
 void draw()
@@ -171,6 +203,42 @@ void draw()
   fill(83, 175, 93);
   text("Combination", (int)(5.0*width/6.0) - 40, 25);
   text(filStr, (int)(5.0*width/6.0) - 20, 50);
+  
+  fill(225);
+  for (int i = 0; i < 3; i++) {
+    ellipse(cx[i], cy[i], d, d);
+  }
+  
+  // Draw the lines representing the angles
+  for (int i = 0; i < 3; i++) {
+    strokeWeight(3);
+    stroke(255, 0, 0);
+    drawLine(cx[i], cy[i], d, radians(cmp[i]));
+    stroke(#2EBDF0);
+    drawLine(cx[i], cy[i], d, radians(dmp[i]));
+  }
+  
+  // Draw the explanatory text
+  textSize(20);
+  fill(255, 0, 0);
+  text("Complementary Filter", 10, 20);
+  
+  fill(#2EBDF0);
+  text("DMP", 10, 50);
+  
+  fill(255);
+  text("Pitch", cx[0]-25, 75);
+  text("Roll", cx[1]-22, 75);
+  text("Yaw", cx[2]-22, 75);
+  
+  for (int i = 0; i < 3; i++) {
+    fill(255, 0, 0);
+    String str = String.format("%5.1f", cmp[i]);
+    text(str, cx[i]-22, 350);
+    fill(#2EBDF0);
+    str = String.format("%5.1f", dmp[i]);
+    text(str, cx[i]-22, 380);
+  }
 }
 
 //
@@ -179,7 +247,7 @@ void draw()
 void serialEvent(Serial p)
 {
   inString = (myPort.readString());
-  
+  println(inString);
   try
   {
     String[] dataStrings = split(inString, "#");
@@ -187,7 +255,7 @@ void serialEvent(Serial p)
     {
       String type = dataStrings[i].substring(0,4);
       String dataval = dataStrings[i].substring(4);
-      
+           
       // Get the time interval
       if(type.equals("DEL:"))
       {
@@ -238,6 +306,10 @@ void serialEvent(Serial p)
         y_fil = float(data[1]);
         z_fil = float(data[2]);
       }
+      print("Angle: "); print (x_fil); print(" "); print(y_fil); print(" "); println(z_fil);
+      cmp[0] = x_fil;
+      cmp[1] = y_fil;
+      cmp[2] = z_fil;
     }
   }
   catch(Exception e)
